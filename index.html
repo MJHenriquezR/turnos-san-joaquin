@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Turnos San Joaquín</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: columna de app móvil centrada, barra de pestañas fija abajo; cada turno es un "boleto" con horas grandes tipo letrero de salidas y una línea de carretera entre origen y destino */
+:root{
+  --bg:#EDF0F3; --surface:#FFFFFF; --sunk:#E2E7EC; --ink:#14202B; --muted:#56636F; --line:#D3DAE1;
+  --accent:#F0A81C; --on-accent:#1C1404; --accent-text:#875800;
+  --go:#14744C; --go-soft:#DCF0E5; --stop:#B3372A; --stop-soft:#FAE3DF; --on-stop:#FFFFFF; --warn-soft:#FBEFD2;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"Figtree","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,"Courier New",monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E141A; --surface:#17202A; --sunk:#111920; --ink:#E5EBF0; --muted:#98A5B2; --line:#2A3542;
+    --accent:#F2B23C; --on-accent:#1C1404; --accent-text:#F2B23C;
+    --go:#4CC28F; --go-soft:#12321F; --stop:#F07E69; --stop-soft:#3A1A15; --on-stop:#2A0D08; --warn-soft:#382A0C;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E141A; --surface:#17202A; --sunk:#111920; --ink:#E5EBF0; --muted:#98A5B2; --line:#2A3542;
+  --accent:#F2B23C; --on-accent:#1C1404; --accent-text:#F2B23C;
+  --go:#4CC28F; --go-soft:#12321F; --stop:#F07E69; --stop-soft:#3A1A15; --on-stop:#2A0D08; --warn-soft:#382A0C;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+button{font-family:inherit;color:inherit}
+a{color:inherit}
+
+.app{max-width:540px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 calc(96px + env(safe-area-inset-bottom,0px))}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 10px}
+.brand{font-family:var(--f-display);font-weight:700;font-size:19px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;text-decoration:none}
+.brand svg{width:26px;height:26px;flex:none}
+.sector-btn{border:1.5px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;font-weight:600;font-size:13.5px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.sector-btn span{color:var(--muted);font-weight:500}
+
+h1{font-family:var(--f-display);font-weight:700;font-size:28px;line-height:1.1;letter-spacing:-.015em;margin:6px 0 4px;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 14px;max-width:62ch}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:10px 0 0}
+.back{display:inline-block;margin-top:4px;font-weight:600;text-decoration:none;color:var(--muted);font-size:14px;padding:4px 0}
+.back:hover{color:var(--ink)}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.center{text-align:center}
+
+.field{display:grid;gap:8px;margin-block:16px}
+.label{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.hint.err{color:var(--stop);font-weight:600}
+
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:12px;padding:4px;gap:4px}
+.seg button{border:0;background:transparent;padding:10px 8px;border-radius:9px;font-weight:600;font-size:15px;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgb(0 0 0 / .14)}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.scroller{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;margin-inline:-2px;scrollbar-width:thin}
+.chip{flex:none;border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:7px 12px;font-weight:600;font-size:14px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;text-align:left}
+.chip small{color:var(--muted);font-size:11.5px;font-weight:500}
+.chip .t{font-family:var(--f-mono);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+.chip[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.chip[aria-pressed="true"] small{color:inherit;opacity:.8}
+
+.list{display:grid;gap:10px}
+.res-h{font-family:var(--f-display);font-size:19px;font-weight:700;margin:24px 0 10px;text-wrap:balance;line-height:1.2}
+.res-h2{font-size:14px;font-weight:700;margin:22px 0 8px;color:var(--muted)}
+
+.ticket{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+a.ticket:hover{border-color:var(--muted)}
+.ticket.dim{opacity:.72}
+.card-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:13px;font-weight:600}
+.route{display:grid;grid-template-columns:auto minmax(24px,1fr) auto;align-items:center;gap:12px}
+.stop{display:grid;min-width:0}
+.stop.end{text-align:right}
+.stop .lbl{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.stop .t{font-family:var(--f-mono);font-weight:700;font-size:26px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.15}
+.stop .place{font-size:13.5px;font-weight:600}
+.road{height:2px;background:repeating-linear-gradient(90deg,var(--muted) 0 7px,transparent 7px 12px);opacity:.55;position:relative}
+.road::after{content:"";position:absolute;right:-3px;top:-5px;border-style:solid;border-width:6px 0 6px 8px;border-color:transparent transparent transparent var(--muted)}
+.big .stop .t{font-size:34px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:3px 10px;border-radius:99px;line-height:1.4}
+.pill.ok{background:var(--go-soft);color:var(--go)}
+.pill.warn{background:var(--warn-soft);color:var(--accent-text)}
+.pill.bad{background:var(--stop-soft);color:var(--stop)}
+.pill.neutral{background:var(--sunk);color:var(--muted)}
+.ticket .pill.fit{margin-top:10px}
+.foot{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:13.5px}
+.foot .who{flex:1 1 100%;min-width:0}
+.seats{display:inline-flex;gap:3px;vertical-align:middle;margin-right:4px}
+.seat{width:10px;height:10px;border-radius:3px;background:var(--go)}
+.seat.taken{background:var(--line)}
+.money{font-family:var(--f-mono);font-weight:700;font-variant-numeric:tabular-nums}
+
+.banner{display:grid;gap:4px;border-radius:var(--r);padding:12px 14px;margin-block:12px;text-decoration:none;color:var(--ink)}
+.banner strong{font-size:15.5px}
+.banner.stop{background:var(--stop-soft);border:1px solid var(--stop)}
+.banner.stop strong{color:var(--stop)}
+.banner.go{background:var(--go-soft);border:1px solid var(--go)}
+.banner.go strong{color:var(--go)}
+.banner.warn{background:var(--warn-soft);border:1px solid var(--accent)}
+.banner .go-link{font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.steps{margin:4px 0 0;padding-left:20px;display:grid;gap:4px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-block:12px}
+.sec{margin-block:20px}
+.sec-h{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.person{display:flex;gap:12px;align-items:center}
+.avatar{width:42px;height:42px;border-radius:50%;background:var(--sunk);display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:18px;flex:none}
+.person > div{display:grid;min-width:0}
+.facts{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}
+.facts li{padding-left:18px;position:relative}
+.facts li::before{content:"";position:absolute;left:2px;top:.6em;width:7px;height:7px;border-radius:2px;background:var(--accent)}
+
+.conds{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.conds > div{display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px;padding:12px 14px;border-top:1px solid var(--line)}
+.conds > div:first-child{border-top:0}
+.conds dt{font-weight:700;font-size:13.5px}
+.conds dd{margin:0;min-width:0}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:12px;padding:14px 18px;font-weight:700;font-size:16px;cursor:pointer;text-decoration:none;width:100%;line-height:1.2}
+.btn.primary{background:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.05)}
+.btn.secondary{background:var(--surface);color:var(--ink);border:1.5px solid var(--line)}
+.btn.danger{background:transparent;color:var(--stop);border:1.5px solid var(--stop)}
+.btn.ghost{background:transparent;color:var(--muted);border:1.5px dashed var(--line)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.cta{display:grid;gap:8px;margin-block:20px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.confirm{display:grid;gap:8px;background:var(--surface);border:1.5px solid var(--stop);border-radius:var(--r);padding:14px;margin-block:20px}
+
+.empty{display:grid;gap:4px;background:var(--surface);border:1.5px dashed var(--line);border-radius:var(--r);padding:16px;margin-top:20px}
+.tp{display:grid;gap:2px;border-radius:var(--r);padding:12px 14px;background:var(--sunk);margin-top:16px;font-size:14px}
+
+.timebox{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.timebox .t{font-family:var(--f-mono);font-weight:700;font-size:28px;font-variant-numeric:tabular-nums;display:block;line-height:1.1}
+.timebox .lbl{font-size:12.5px;color:var(--muted);font-weight:600}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{min-width:46px;height:42px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);font-weight:700;font-size:15px;cursor:pointer;font-family:var(--f-mono)}
+.stepper output{font-family:var(--f-mono);font-weight:700;font-size:22px;min-width:2ch;text-align:center}
+.moneyin{display:flex;align-items:center;gap:4px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);padding:0 12px;max-width:200px}
+.moneyin span{font-family:var(--f-mono);font-weight:700;color:var(--muted)}
+.moneyin input{border:0;background:transparent;color:var(--ink);font:700 18px var(--f-mono);padding:10px 0;width:100%;min-width:0}
+.moneyin input:focus{outline:none}
+.moneyin:focus-within{border-color:var(--accent)}
+.opts{display:grid;gap:8px}
+.opt{display:grid;gap:2px;text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;cursor:pointer;font-size:14px}
+.opt strong{font-size:14.5px}
+.opt span{color:var(--muted);font-size:13px}
+.opt[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+
+.wa{width:100%;min-height:170px;font:13.5px/1.5 var(--f-mono);border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--sunk);color:var(--ink);resize:vertical}
+.note{font-size:12.5px;color:var(--muted);margin-top:32px;line-height:1.5}
+.linkbtn{background:none;border:0;padding:0;font:inherit;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-weight:600}
+
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.tabs-in{max-width:540px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+.tab{display:grid;justify-items:center;gap:2px;padding:10px 4px 12px;text-decoration:none;color:var(--muted);font-size:12.5px;font-weight:600;position:relative}
+.tab svg{width:22px;height:22px}
+.tab[aria-current="page"]{color:var(--ink)}
+.tab[aria-current="page"]::before{content:"";position:absolute;top:0;left:28%;right:28%;height:3px;background:var(--accent);border-radius:0 0 3px 3px}
+.badge{position:absolute;top:5px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--stop);color:var(--on-stop);font-size:11px;font-weight:700;display:grid;place-items:center}
+
+.sheet-back{position:fixed;inset:0;z-index:40;background:rgb(10 15 20 / .5);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:540px;border-radius:18px 18px 0 0;padding-block:20px calc(20px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:10px}
+.sheet h2{font-family:var(--f-display);font-size:22px;margin:0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:50;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;width:max-content;max-width:min(480px,calc(100% - 32px));box-shadow:0 6px 20px rgb(0 0 0 / .25)}
+@media (prefers-reduced-motion:no-preference){.toast{animation:pop .2s ease-out}@keyframes pop{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}}
+@media (max-width:380px){.stop .t{font-size:22px}.big .stop .t{font-size:28px}.conds > div{grid-template-columns:1fr;gap:2px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="brand" href="#buscar" aria-label="Turnos San Joaquín, inicio">
+      <svg viewBox="0 0 26 26" aria-hidden="true"><rect x="5" y="5" width="16" height="16" rx="3.5" transform="rotate(45 13 13)" fill="var(--accent)"/><path d="M8.5 14.5h9M10 14.5l1.2-2.8h3.6l1.2 2.8" fill="none" stroke="var(--on-accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10.5" cy="15.8" r=".9" fill="var(--on-accent)"/><circle cx="15.5" cy="15.8" r=".9" fill="var(--on-accent)"/></svg>
+      Turnos San Joaquín
+    </a>
+    <button class="sector-btn" id="sector-btn" data-act="sector-open" aria-haspopup="dialog"></button>
+  </header>
+  <main id="main"></main>
+</div>
+<nav class="tabs" aria-label="Secciones">
+  <div class="tabs-in">
+    <a class="tab" href="#buscar" data-tab="buscar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>Buscar turno</a>
+    <a class="tab" href="#publicar" data-tab="publicar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg>Publicar turno</a>
+    <a class="tab" href="#viajes" data-tab="viajes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z"/><path d="M14 7v10" stroke-dasharray="2 2"/></svg>Mis viajes<span class="badge" id="badge" hidden></span></a>
+  </div>
+</nav>
+<div id="sheet" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function(){
+"use strict";
+/* ---------- Datos base ---------- */
+var STORE = "turnos-sj-v1";
+var MOD_INI = [["1","08:20"],["2","09:40"],["3","11:00"],["4","12:20"],["5","14:50"],["6","16:10"],["7","17:30"],["8","18:50"]];
+var MOD_FIN = [["1","09:30"],["2","10:50"],["3","12:10"],["4","13:30"],["5","16:00"],["6","17:20"],["7","18:40"],["8","20:00"]];
+var REGLAS = {
+  flexible: {titulo:"Hasta 2 módulos antes", corto:"sin costo hasta 2 módulos antes", largo:"Sin costo si cancelas hasta 2 módulos (2 h 40 min) antes de la salida. Después se cobra el aporte, salvo enfermedad o emergencia."},
+  noche:    {titulo:"Hasta las 22:00 del día anterior", corto:"sin costo hasta las 22:00 del día anterior", largo:"Sin costo si cancelas hasta las 22:00 del día anterior. Después se cobra el aporte, salvo enfermedad o emergencia."},
+  libre:    {titulo:"Sin cobro por cancelar", corto:"cancelar no tiene costo", largo:"Cancelar no tiene costo. Solo avisa apenas sepas para que otra persona tome el cupo."}
+};
+var AMB = {conversa:"Viaje conversado", tranquilo:"Viaje tranquilo, se puede dormir", igual:"Sin preferencia de conversación"};
+var AMB_CORTO = {conversa:"Conversado", tranquilo:"Tranquilo", igual:"Sin preferencia"};
+
+/* tuplas: [conductor, punto, hora, cupos, ocupados, ambiente, regla, espera(min), lista de espera]
+   ida: hora = llegada al campus · vuelta: hora = salida del campus */
+var SECT = {
+  buin: {
+    nombre:"Buin", grupo:"Buin · Linderos · Paine", tarifa:2000, dur:65,
+    puntos:["Copec Buin","McDonald's Buin","Plaza Linderos"], extra:[0,5,10],
+    tp:{min:120, via:"Metrotren y micro"},
+    cond:[
+      {n:"Martina R.", viajes:64, punt:[17,20], contigo:4, desde:2022},
+      {n:"Joaquín P.", viajes:38, punt:[19,20], contigo:0, desde:2023},
+      {n:"Fernanda S.", viajes:91, punt:[20,20], contigo:2, desde:2021},
+      {n:"Tomás V.", viajes:12, punt:[9,12], contigo:0, desde:2025},
+      {n:"Catalina M.", viajes:45, punt:[18,20], contigo:1, desde:2022},
+      {n:"Ignacio A.", viajes:27, punt:[16,20], contigo:0, desde:2024}
+    ],
+    pas:["Diego","Sofía","Valentina","Benja","Rocío","Pablo","Amanda","Cristóbal","Javiera"],
+    ida:[
+      [0,0,"08:05",4,1,"conversa","flexible",5,0],
+      [1,0,"08:10",3,2,"tranquilo","flexible",5,0],
+      [2,1,"08:00",4,4,"igual","noche",10,1],
+      [3,0,"08:35",3,1,"conversa","libre",0,0],
+      [4,2,"09:25",4,2,"tranquilo","flexible",5,0],
+      [5,0,"09:30",4,4,"igual","noche",5,2],
+      [1,1,"10:45",3,1,"igual","libre",5,0],
+      [2,0,"12:05",4,1,"conversa","flexible",10,0],
+      [4,0,"14:35",3,0,"tranquilo","libre",5,0]
+    ],
+    vuelta:[
+      [4,2,"12:20",4,1,"tranquilo","libre",5,0],
+      [3,0,"13:40",3,2,"conversa","libre",0,0],
+      [0,0,"16:10",4,1,"conversa","flexible",5,0],
+      [2,1,"17:30",4,4,"igual","noche",10,3],
+      [5,0,"18:50",4,2,"igual","flexible",5,0],
+      [1,0,"20:10",3,0,"tranquilo","flexible",5,0]
+    ]
+  },
+  chicureo: {
+    nombre:"Chicureo", grupo:"Chicureo · Piedra Roja", tarifa:2500, dur:50,
+    puntos:["Copec Chicureo","Rotonda Piedra Roja","Las Brisas"], extra:[0,5,10],
+    tp:{min:100, via:"Bus a Escuela Militar y metro"},
+    cond:[
+      {n:"Benjamín L.", viajes:52, punt:[18,20], contigo:3, desde:2022},
+      {n:"Antonia G.", viajes:33, punt:[20,20], contigo:0, desde:2023},
+      {n:"Vicente C.", viajes:70, punt:[15,20], contigo:1, desde:2021},
+      {n:"Josefa D.", viajes:18, punt:[12,14], contigo:0, desde:2025},
+      {n:"Matías H.", viajes:41, punt:[17,20], contigo:0, desde:2023},
+      {n:"Florencia O.", viajes:29, punt:[19,20], contigo:2, desde:2024}
+    ],
+    pas:["Agustín","Emilia","Lucas","Trinidad","Maite","Nicolás","Isidora","Felipe","Paz"],
+    ida:[
+      [0,0,"08:05",4,1,"conversa","flexible",5,0],
+      [1,1,"08:10",4,3,"tranquilo","noche",5,0],
+      [2,0,"07:55",4,4,"igual","flexible",10,2],
+      [3,2,"08:40",3,1,"tranquilo","libre",5,0],
+      [4,0,"09:25",4,1,"conversa","flexible",5,0],
+      [5,0,"10:45",4,4,"tranquilo","noche",5,1],
+      [1,0,"12:05",3,0,"igual","libre",5,0],
+      [2,1,"14:35",4,2,"conversa","flexible",10,0]
+    ],
+    vuelta:[
+      [3,0,"12:20",3,1,"tranquilo","libre",5,0],
+      [5,1,"13:40",4,2,"igual","flexible",5,0],
+      [0,0,"16:10",4,4,"conversa","flexible",5,1],
+      [2,0,"17:30",4,2,"igual","noche",10,0],
+      [4,2,"18:50",4,1,"tranquilo","libre",5,0],
+      [1,0,"20:10",3,0,"igual","flexible",5,0]
+    ]
+  }
+};
+
+/* ---------- Utilidades ---------- */
+function $(s){ return document.querySelector(s); }
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function toMin(h){ var p = h.split(":"); return (+p[0])*60 + (+p[1]); }
+function pad(n){ return String(n).padStart(2,"0"); }
+function fmt(m){ m = ((m%1440)+1440)%1440; return pad(Math.floor(m/60)) + ":" + pad(m%60); }
+function fmtH(m){ m = ((m%1440)+1440)%1440; return Math.floor(m/60) + ":" + pad(m%60); }
+function fmtDur(m){ if (m < 60) return m + " min"; var h = Math.floor(m/60), r = m%60; return h + " h" + (r ? " " + r + " min" : ""); }
+function money(n){ return "$" + Number(n).toLocaleString("es-CL"); }
+function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+function plural(n, s, p){ return n === 1 ? s : p; }
+function todayKey(){ var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
+function dayDate(off){ var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+off); return d; }
+function diaLabel(off){ if (off === 0) return "Hoy"; if (off === 1) return "Mañana"; return cap(dayDate(off).toLocaleDateString("es-CL",{weekday:"long"})); }
+function diaFecha(off){ return dayDate(off).toLocaleDateString("es-CL",{weekday:"short", day:"numeric", month:"short"}).replace(",", ""); }
+function tripDate(t){ var d = dayDate(t.dia); d.setMinutes(t.salida); return d; }
+function isPast(t){ return tripDate(t).getTime() < Date.now(); }
+function hace(ts){ var m = Math.round((Date.now()-ts)/60000); if (m < 1) return "recién"; if (m < 60) return "hace " + m + " min"; var h = Math.floor(m/60); return "hace " + h + " " + plural(h,"hora","horas"); }
+function rot(list, start, n){ var out = []; for (var i=0;i<n;i++) out.push(list[(start+i) % list.length]); return out; }
+function fmtLimite(d){
+  var base = new Date(); base.setHours(0,0,0,0);
+  var x = new Date(d); x.setHours(0,0,0,0);
+  var diff = Math.round((x - base)/86400000);
+  var hh = fmtH(d.getHours()*60 + d.getMinutes());
+  if (diff === 0) return "hoy a las " + hh;
+  if (diff === -1) return "ayer a las " + hh;
+  if (diff === 1) return "mañana a las " + hh;
+  return "el " + d.toLocaleDateString("es-CL",{weekday:"long"}) + " a las " + hh;
+}
+
+/* ---------- Estado ---------- */
+function mkTrip(sector, sentido, t, i, d){
+  var S = SECT[sector];
+  var ocup0 = t[4], esp0 = t[8], cupos = t[3];
+  var ocup = d === 1 ? ocup0 : Math.max(0, ocup0 - ((i+d) % 2));
+  var esp = ocup === cupos ? (d === 1 ? esp0 : Math.max(0, esp0-1)) : 0;
+  var h = toMin(t[2]), salida, llegada;
+  if (sentido === "ida"){ llegada = h; salida = h - S.dur - S.extra[t[1]]; }
+  else { salida = h; llegada = h + S.dur + S.extra[t[1]]; }
+  return {
+    id: sector + "-" + sentido + "-" + (i+1) + "-d" + d, sector: sector, sentido: sentido, dia: d,
+    cond: t[0], punto: t[1], salida: salida, llegada: llegada, cupos: cupos,
+    pasajeros: rot(S.pas, i+d, ocup), espera: rot(S.pas, i+d+ocup, esp),
+    aporte: S.tarifa, amb: t[5], regla: t[6], tol: t[7], estado: "ok"
+  };
+}
+function searchDefaults(){ return {sentido:"ida", dia:1, clase:"08:20", fin:"17:20", punto:"todos"}; }
+function seed(sector){
+  var trips = [];
+  Object.keys(SECT).forEach(function(k){
+    for (var d=0; d<3; d++){
+      SECT[k].ida.forEach(function(t,i){ trips.push(mkTrip(k,"ida",t,i,d)); });
+      SECT[k].vuelta.forEach(function(t,i){ trips.push(mkTrip(k,"vuelta",t,i,d)); });
+    }
+  });
+  /* Escenario de prueba: tenías reservado el turno de mañana para la clase de las 8:20 y la conductora lo canceló */
+  var id = sector + "-ida-1-d1";
+  var t = trips.filter(function(x){ return x.id === id; })[0];
+  t.pasajeros.push("Tú");
+  t.estado = "cancelado";
+  t.aviso = {texto:"Perdón, al final no voy mañana. Me salió algo temprano.", ts: Date.now() - 14*60000};
+  var mis = {}; mis[id] = {clase:"08:20", visto:false};
+  return {v:1, seededOn: todayKey(), sector: sector, touched:false, trips: trips, mis: mis, search: searchDefaults(), form: null};
+}
+function load(){
+  try {
+    var s = JSON.parse(localStorage.getItem(STORE));
+    if (s && s.v === 1 && s.seededOn === todayKey() && SECT[s.sector]) return s;
+  } catch(e){}
+  return null;
+}
+function save(){ try { localStorage.setItem(STORE, JSON.stringify(state)); } catch(e){} }
+function savedSector(){ try { return localStorage.getItem(STORE + "-sector"); } catch(e){ return null; } }
+function saveSector(s){ try { localStorage.setItem(STORE + "-sector", s); } catch(e){} }
+
+var firstRun = false;
+var state = load();
+if (!state){
+  var prev = savedSector();
+  firstRun = !SECT[prev];
+  state = seed(SECT[prev] ? prev : "buin");
+  save();
+}
+var ui = {confirm:null, flash:null, lastHash:null};
+
+/* ---------- Consultas ---------- */
+function trip(id){ for (var i=0;i<state.trips.length;i++) if (state.trips[i].id === id) return state.trips[i]; return null; }
+function libres(t){ return t.cupos - t.pasajeros.length; }
+function getCond(t){ return t.cond === -1 ? {n:"Tú", own:true} : SECT[t.sector].cond[t.cond]; }
+function punto(t){ return SECT[t.sector].puntos[t.punto]; }
+function claseFor(t){
+  if (t.sentido === "ida"){
+    for (var i=0;i<MOD_INI.length;i++) if (toMin(MOD_INI[i][1]) >= t.llegada) return MOD_INI[i][1];
+    return fmt(t.llegada);
+  }
+  var c = null;
+  for (var j=0;j<MOD_FIN.length;j++) if (toMin(MOD_FIN[j][1]) <= t.salida) c = MOD_FIN[j][1];
+  return c || fmt(t.salida);
+}
+function costo(t){
+  if (t.regla === "libre") return {cobra:false, txt:"Cancelar no tiene costo."};
+  var lim;
+  if (t.regla === "flexible"){ lim = new Date(tripDate(t).getTime() - 160*60000); }
+  else { lim = dayDate(t.dia - 1); lim.setHours(22,0,0,0); }
+  if (Date.now() < lim.getTime()) return {cobra:false, txt:"Si cancelas antes de " + fmtLimite(lim) + ", no pagas nada."};
+  return {cobra:true, txt:"El plazo sin costo terminó " + fmtLimite(lim) + ". Si cancelas ahora corresponde pagar " + money(t.aporte) + ", salvo enfermedad o emergencia."};
+}
+function fitIda(t, T){
+  var m = T - t.llegada;
+  if (m < 0) return {cls:"bad", txt:"Llega " + (-m) + " min tarde a tu clase de las " + fmtH(T)};
+  if (m <= 5) return {cls:"warn", txt: m === 0 ? "Llega justo a la hora de tu clase" : "Llega " + m + " min antes de tu clase: muy justo"};
+  return {cls:"ok", txt:"Llega " + m + " min antes de tu clase de las " + fmtH(T)};
+}
+function fitVuelta(t, E){
+  var w = t.salida - E;
+  if (w <= 10) return {cls:"ok", txt:"Sale apenas terminas la clase"};
+  if (w <= 45) return {cls:"ok", txt:"Esperas " + fmtDur(w) + " en el campus"};
+  return {cls:"warn", txt:"Esperas " + fmtDur(w) + " en el campus"};
+}
+function candidatos(f){
+  return state.trips.filter(function(t){
+    return t.sector === f.sector && t.sentido === f.sentido && t.dia === f.dia && t.estado === "ok" && !isPast(t) &&
+      (f.punto === undefined || f.punto === "todos" || t.punto === +f.punto) && (!f.excluir || t.id !== f.excluir);
+  });
+}
+function ordenar(list, key){
+  return list.sort(function(a,b){ var la = libres(a) > 0 ? 0 : 1, lb = libres(b) > 0 ? 0 : 1; return la - lb || key(a) - key(b); });
+}
+function buscarIda(base, T){
+  var ok = ordenar(base.filter(function(t){ return t.llegada <= T && t.llegada >= T-80; }), function(t){ return T - t.llegada; });
+  var tarde = base.filter(function(t){ return t.llegada > T && t.llegada <= T+40; }).sort(function(a,b){ return a.llegada-b.llegada; });
+  return {ok:ok, tarde:tarde};
+}
+function buscarVuelta(base, E){
+  var ok = ordenar(base.filter(function(t){ return t.salida >= E && t.salida <= E+150; }), function(t){ return t.salida - E; });
+  var sig = base.filter(function(t){ return t.salida > E+150; }).sort(function(a,b){ return a.salida-b.salida; })[0] || null;
+  return {ok:ok, sig:sig};
+}
+function pendientes(){
+  return Object.keys(state.mis).map(trip).filter(function(t){ return t && t.estado === "cancelado" && t.cond !== -1; });
+}
+function roleOf(t){
+  if (t.cond === -1) return t.estado === "cancelado" ? {cls:"neutral", txt:"Cancelaste este turno"} : {cls:"neutral", txt:"Conduces tú · " + t.pasajeros.length + " de " + t.cupos};
+  if (t.estado === "cancelado") return {cls:"bad", txt:"Cancelado por " + getCond(t).n};
+  if (t.espera.indexOf("Tú") >= 0) return {cls:"warn", txt:"Lista de espera · puesto " + (t.espera.indexOf("Tú")+1)};
+  return {cls:"ok", txt:"Cupo reservado"};
+}
+
+/* ---------- Piezas de interfaz ---------- */
+function chip(act, k, val, label, small, pressed, mono){
+  return '<button type="button" class="chip" data-act="' + act + '" data-k="' + k + '" data-val="' + esc(val) + '" aria-pressed="' + (pressed ? "true" : "false") + '">' +
+    (mono ? '<span class="t">' + label + '</span>' : '<span>' + label + '</span>') + (small ? '<small>' + small + '</small>' : '') + '</button>';
+}
+function segBtn(act, k, val, label, cur){
+  return '<button type="button" data-act="' + act + '" data-k="' + k + '" data-val="' + val + '" aria-pressed="' + (cur === val ? "true" : "false") + '">' + label + '</button>';
+}
+function field(label, inner, id){
+  return '<div class="field"' + (id ? ' id="' + id + '"' : '') + '><span class="label">' + label + '</span>' + inner + '</div>';
+}
+function seatsHTML(t){
+  var s = "";
+  for (var i=0;i<t.cupos;i++) s += '<span class="seat' + (i < t.pasajeros.length ? " taken" : "") + '"></span>';
+  var L = libres(t);
+  return '<span><span class="seats" aria-hidden="true">' + s + '</span><b>' + (L > 0 ? L + " " + plural(L,"cupo libre","cupos libres") : "Lleno" + (t.espera.length ? " · " + t.espera.length + " en espera" : "")) + '</b></span>';
+}
+function routeHTML(t, big){
+  var ida = t.sentido === "ida";
+  var a = ida ? ["Pasa por", t.salida, punto(t)] : ["Sale de", t.salida, "San Joaquín"];
+  var b = ["Llega a", t.llegada, ida ? "San Joaquín" : punto(t)];
+  return '<div class="route' + (big ? " big" : "") + '">' +
+    '<div class="stop"><span class="lbl">' + a[0] + '</span><span class="t">' + fmt(a[1]) + '</span><span class="place">' + esc(a[2]) + '</span></div>' +
+    '<div class="road" aria-hidden="true"></div>' +
+    '<div class="stop end"><span class="lbl">' + b[0] + '</span><span class="t">' + fmt(b[1]) + '</span><span class="place">' + esc(b[2]) + '</span></div></div>';
+}
+function cardHTML(t, ctx){
+  ctx = ctx || {};
+  var c = getCond(t);
+  var tag = ctx.preview ? "div" : "a";
+  var href = ctx.preview ? "" : ' href="#viaje-' + t.id + '"';
+  var top = "";
+  if (ctx.role){
+    top = '<div class="card-top"><span>' + diaLabel(t.dia) + ' · ' + diaFecha(t.dia) + ' · ' + (t.sentido === "ida" ? "Ida" : "Vuelta") + '</span><span class="pill ' + ctx.role.cls + '">' + ctx.role.txt + '</span></div>';
+  }
+  var who = c.own ? '<b>Conduces tú</b>' :
+    '<b>' + esc(c.n) + '</b> <span class="muted">· a la hora en ' + c.punt[0] + ' de sus últimos ' + c.punt[1] + ' turnos</span>';
+  return '<' + tag + ' class="ticket' + (ctx.dim ? " dim" : "") + '"' + href + '>' + top + routeHTML(t) +
+    (ctx.fit ? '<span class="pill fit ' + ctx.fit.cls + '">' + ctx.fit.txt + '</span>' : '') +
+    '<div class="foot"><span class="who">' + who + '</span>' + seatsHTML(t) +
+    '<span class="money">' + money(t.aporte) + '</span><span class="muted">' + AMB_CORTO[t.amb] + '</span></div></' + tag + '>';
+}
+function tpHTML(sector, sentido, T){
+  var S = SECT[sector];
+  if (sentido === "ida") return '<div class="tp"><strong>Si no encuentras turno: ' + S.tp.via + '</strong><span>Son unas ' + fmtDur(S.tp.min) + ' de viaje. Para llegar a las ' + fmtH(T) + ', sal de ' + S.nombre + ' antes de las ' + fmtH(T - S.tp.min - 10) + '.</span></div>';
+  return '<div class="tp"><strong>Si prefieres no esperar: ' + S.tp.via + '</strong><span>Son unas ' + fmtDur(S.tp.min) + ' de viaje. Saliendo a las ' + fmtH(T + 10) + ' llegarías a ' + S.nombre + ' cerca de las ' + fmtH(T + 10 + S.tp.min) + '.</span></div>';
+}
+function avisosHTML(){
+  return pendientes().map(function(t){
+    var m = state.mis[t.id];
+    return '<a class="banner stop" href="#viaje-' + t.id + '"><strong>' + esc(getCond(t).n) + ' canceló tu turno de ' + diaLabel(t.dia).toLowerCase() + '</strong>' +
+      '<span>Ibas a pasar a las ' + fmtH(t.salida) + ' por ' + esc(punto(t)) + '. <span class="go-link">Ver otras formas de llegar a las ' + fmtH(toMin(m.clase)) + '</span></span></a>';
+  }).join("");
+}
+function noteHTML(){
+  return '<p class="note">Prototipo para IIC3182. Los turnos, personas y montos son datos de prueba: no hay cuentas, pagos ni mensajes reales. <button type="button" class="linkbtn" data-act="reset">Reiniciar datos de prueba</button></p>';
+}
+
+/* ---------- Vistas ---------- */
+function viewBuscar(){
+  var s = state.search, S = SECT[state.sector], h = avisosHTML();
+  h += '<h1>Buscar turno</h1><p class="sub">Grupo ' + S.grupo + ' · aporte del grupo ' + money(S.tarifa) + '</p>';
+  h += '<div class="seg" role="group" aria-label="Sentido del viaje">' + segBtn("search","sentido","ida","Ida al campus",s.sentido) + segBtn("search","sentido","vuelta","Vuelta a casa",s.sentido) + '</div>';
+  h += field("Día", '<div class="chips">' + [0,1,2].map(function(d){ return chip("search","dia",d,diaLabel(d),diaFecha(d),s.dia===d); }).join("") + '</div>');
+  if (s.sentido === "ida"){
+    h += field("Tu primera clase empieza a las", '<div class="scroller">' + MOD_INI.map(function(m){ return chip("search","clase",m[1],fmtH(toMin(m[1])),"Módulo " + m[0],s.clase===m[1],true); }).join("") + '</div>');
+  } else {
+    h += field("Tu última clase termina a las", '<div class="scroller">' + MOD_FIN.map(function(m){ return chip("search","fin",m[1],fmtH(toMin(m[1])),"Módulo " + m[0],s.fin===m[1],true); }).join("") + '</div>');
+  }
+  h += field("Punto de encuentro", '<div class="chips">' + chip("search","punto","todos","Cualquiera","",s.punto==="todos") +
+    S.puntos.map(function(p,i){ return chip("search","punto",String(i),esc(p),"",s.punto===String(i)); }).join("") + '</div>');
+
+  var base = candidatos({sector:state.sector, sentido:s.sentido, dia:s.dia, punto:s.punto});
+  h += '<section aria-live="polite" aria-label="Resultados">';
+  if (s.sentido === "ida"){
+    var T = toMin(s.clase), r = buscarIda(base, T);
+    if (r.ok.length){
+      h += '<h2 class="res-h">' + r.ok.length + ' ' + plural(r.ok.length,"turno llega","turnos llegan") + ' a tiempo para las ' + fmtH(T) + '</h2>';
+      h += '<div class="list">' + r.ok.map(function(t){ return cardHTML(t,{fit:fitIda(t,T)}); }).join("") + '</div>';
+    } else {
+      h += '<div class="empty"><strong>Ningún turno llega a tiempo para las ' + fmtH(T) + '</strong><span class="muted">Prueba con otro punto de encuentro o revisa la alternativa de abajo.</span></div>';
+    }
+    if (r.tarde.length){
+      h += '<h3 class="res-h2">Llegan después de las ' + fmtH(T) + '</h3><div class="list">' + r.tarde.map(function(t){ return cardHTML(t,{fit:fitIda(t,T), dim:true}); }).join("") + '</div>';
+    }
+    h += tpHTML(state.sector, "ida", T);
+  } else {
+    var E = toMin(s.fin), v = buscarVuelta(base, E);
+    if (v.ok.length){
+      h += '<h2 class="res-h">' + v.ok.length + ' ' + plural(v.ok.length,"turno sale","turnos salen") + ' después de las ' + fmtH(E) + '</h2>';
+      h += '<div class="list">' + v.ok.map(function(t){ return cardHTML(t,{fit:fitVuelta(t,E)}); }).join("") + '</div>';
+    } else {
+      h += '<div class="empty"><strong>No hay turnos de vuelta en las 2 h 30 min siguientes a las ' + fmtH(E) + '</strong><span class="muted">' + (v.sig ? "El siguiente sale a las " + fmtH(v.sig.salida) + "." : "No hay más turnos publicados para ese día.") + '</span></div>';
+      if (v.sig) h += '<div class="list" style="margin-top:10px">' + cardHTML(v.sig,{fit:fitVuelta(v.sig,E)}) + '</div>';
+    }
+    h += tpHTML(state.sector, "vuelta", E);
+  }
+  h += '</section>' + noteHTML();
+  return h;
+}
+
+function condsHTML(t){
+  var S = SECT[t.sector], c = getCond(t), k = costo(t);
+  var tol = t.tol === 0 ? "No espera: sale a la hora exacta." :
+    "Espera hasta " + t.tol + " min en " + (t.sentido === "ida" ? esc(punto(t)) : "el campus") + ". Si vas atrasado, avisa antes.";
+  return '<dl class="conds">' +
+    '<div><dt>Aporte</dt><dd><span class="money">' + money(t.aporte) + '</span> ' + (t.aporte === S.tarifa ? '<span class="muted">· tarifa del grupo</span>' : '<span class="muted">· la tarifa del grupo es ' + money(S.tarifa) + '</span>') +
+      '<br><span class="muted small">Por transferencia a quien conduce, después del viaje.</span></dd></div>' +
+    '<div><dt>Si cancelas</dt><dd>' + REGLAS[t.regla].largo + (c.own ? "" : '<br><span class="small" style="font-weight:600">' + k.txt + '</span>') + '</dd></div>' +
+    '<div><dt>Espera</dt><dd>' + tol + '</dd></div>' +
+    '<div><dt>Ambiente</dt><dd>' + AMB[t.amb] + '</dd></div></dl>';
+}
+
+function viewViaje(id){
+  var t = trip(id);
+  if (!t) return '<a class="back" href="#buscar">← Buscar turno</a><div class="empty"><strong>Este turno ya no está disponible</strong><span class="muted">Puede que se haya reiniciado la demo. Vuelve a buscar.</span></div>';
+  return t.cond === -1 ? viewConductor(t) : viewPasajero(t);
+}
+
+function viewPasajero(t){
+  var c = getCond(t), mine = state.mis[t.id], res = t.pasajeros.indexOf("Tú") >= 0, esp = t.espera.indexOf("Tú") >= 0, L = libres(t), k = costo(t);
+  if (mine && t.estado === "cancelado" && !mine.visto){ mine.visto = true; save(); }
+  var h = '<a class="back" href="#' + (mine ? "viajes" : "buscar") + '">← ' + (mine ? "Mis viajes" : "Volver a la búsqueda") + '</a>';
+  h += '<p class="eyebrow">' + (t.sentido === "ida" ? "Ida a San Joaquín" : "Vuelta desde San Joaquín") + ' · ' + diaLabel(t.dia) + ' ' + diaFecha(t.dia) + '</p>';
+  h += '<h1>Turno de ' + esc(c.n) + '</h1>';
+
+  if (t.estado === "cancelado"){
+    h += '<div class="banner stop"><strong>' + esc(c.n) + ' canceló este turno</strong>' + (t.aviso ? '<span>“' + esc(t.aviso.texto) + '” · avisó ' + hace(t.aviso.ts) + '</span>' : '') + '</div>';
+    h += '<div class="panel">' + routeHTML(t, true) + '</div>';
+    if (mine) h += alternativasHTML(t, mine.clase) + '<div class="cta"><button type="button" class="btn ghost" data-act="dismiss" data-id="' + t.id + '">Quitar de mis viajes</button></div>';
+    return h;
+  }
+
+  if (res){
+    var ida = t.sentido === "ida";
+    h += '<div class="banner go"><strong>' + (ui.flash && ui.flash.id === t.id ? "Listo, tienes tu cupo" : "Tienes un cupo en este turno") + '</strong><ol class="steps">' +
+      '<li>' + (ida ? "Llega a " + esc(punto(t)) : "Está en el campus") + ' a las <b>' + fmtH(t.salida) + '</b>. ' + (t.tol ? esc(c.n) + " espera hasta " + t.tol + " min." : "Sale a la hora exacta.") + '</li>' +
+      '<li>Después del viaje transfiere <b>' + money(t.aporte) + '</b>.</li>' +
+      '<li>' + k.txt + '</li></ol></div>';
+  }
+  if (esp){
+    h += '<div class="banner warn"><strong>Estás en la lista de espera · puesto ' + (t.espera.indexOf("Tú")+1) + '</strong><span>Si alguien cancela, el cupo pasa a la primera persona de la lista. Lo verás en Mis viajes.</span></div>';
+  }
+
+  h += '<div class="panel">' + routeHTML(t, true) + '<p class="small muted" style="margin:10px 0 0">Viaje de unos ' + fmtDur(t.llegada - t.salida) + '. ' + seatsHTML(t) + '</p></div>';
+
+  var otros = t.pasajeros.filter(function(n){ return n !== "Tú"; });
+  h += '<section class="sec"><h2 class="sec-h">Quién conduce</h2><div class="panel" style="margin:0">' +
+    '<div class="person"><span class="avatar" aria-hidden="true">' + esc(c.n.charAt(0)) + '</span><div><strong>' + esc(c.n) + '</strong><span class="muted small">En el grupo desde ' + c.desde + ' · ' + c.viajes + ' turnos publicados</span></div></div>' +
+    '<ul class="facts"><li>Llegó a la hora en <b>' + c.punt[0] + ' de sus últimos ' + c.punt[1] + '</b> turnos</li>' +
+    (c.contigo ? '<li>Ya viajaste con ' + esc(c.n.split(" ")[0]) + ' <b>' + c.contigo + ' ' + plural(c.contigo,"vez","veces") + '</b></li>' : '<li>Todavía no has viajado con ' + esc(c.n.split(" ")[0]) + '</li>') +
+    '<li>' + AMB[t.amb] + '</li></ul>' +
+    (otros.length ? '<p class="small muted" style="margin:12px 0 0">También van: ' + otros.map(esc).join(", ") + '</p>' : '') +
+    '</div></section>';
+
+  h += '<section class="sec"><h2 class="sec-h">' + (res ? "Condiciones de tu cupo" : "Antes de reservar") + '</h2>' + condsHTML(t) + '</section>';
+
+  if (res){
+    h += confirmHTML(t, c);
+  } else if (esp){
+    h += '<div class="cta"><button type="button" class="btn secondary" data-act="leave-wait" data-id="' + t.id + '">Salir de la lista de espera</button></div>';
+  } else if (isPast(t)){
+    h += '<div class="empty"><strong>Este turno ya salió</strong></div>';
+  } else if (L > 0){
+    h += '<div class="cta"><button type="button" class="btn primary" data-act="reserve" data-id="' + t.id + '">Reservar cupo · ' + money(t.aporte) + '</button>' +
+      '<p class="small muted center" style="margin:0">Pagas después del viaje. Puedes cancelar desde Mis viajes con las condiciones de arriba.</p></div>';
+  } else {
+    h += '<div class="cta"><button type="button" class="btn secondary" data-act="wait" data-id="' + t.id + '">Unirme a la lista de espera</button>' +
+      '<p class="small muted center" style="margin:0">' + (t.espera.length ? t.espera.length + " " + plural(t.espera.length,"persona está","personas están") + " antes que tú." : "Serías la primera persona de la lista.") + '</p></div>';
+  }
+  return h;
+}
+
+function confirmHTML(t, c){
+  if (ui.confirm !== t.id) return '<div class="cta"><button type="button" class="btn danger" data-act="cancel-ask" data-id="' + t.id + '">Cancelar mi cupo</button></div>';
+  var k = costo(t);
+  return '<div class="confirm" role="group" aria-label="Confirmar cancelación"><strong>¿Cancelar tu cupo con ' + esc(c.n) + '?</strong>' +
+    '<span>' + k.txt + '</span><span class="muted">' + (t.espera.length ? "El cupo pasará a " + esc(t.espera[0]) + ", que está primero en la lista de espera." : "El cupo quedará libre para otra persona.") + '</span>' +
+    '<div class="row"><button type="button" class="btn danger" data-act="cancel-yes" data-id="' + t.id + '">Sí, cancelar</button><button type="button" class="btn secondary" data-act="cancel-no">No, mantener</button></div></div>';
+}
+
+function alternativasHTML(t, clase){
+  var T = toMin(clase);
+  var base = candidatos({sector:t.sector, sentido:t.sentido, dia:t.dia, excluir:t.id}).filter(function(x){ return x.cond !== -1; });
+  var h = '<section class="sec"><h2 class="res-h" style="margin-top:8px">Otras formas de ' + (t.sentido === "ida" ? "llegar a tu clase de las " + fmtH(T) : "volver después de las " + fmtH(T)) + '</h2>';
+  var list;
+  if (t.sentido === "ida"){
+    list = buscarIda(base, T).ok;
+    h += list.length ? '<div class="list">' + list.map(function(x){ return cardHTML(x,{fit:fitIda(x,T)}); }).join("") + '</div>' :
+      '<div class="empty"><strong>No quedan turnos que lleguen a tiempo</strong></div>';
+  } else {
+    list = buscarVuelta(base, T).ok;
+    h += list.length ? '<div class="list">' + list.map(function(x){ return cardHTML(x,{fit:fitVuelta(x,T)}); }).join("") + '</div>' :
+      '<div class="empty"><strong>No quedan turnos de vuelta cercanos</strong></div>';
+  }
+  return h + tpHTML(t.sector, t.sentido, T) + '</section>';
+}
+
+function waText(t){
+  var ida = t.sentido === "ida", url = location.href.split("#")[0] + "#viaje-" + t.id;
+  return "Turno " + (ida ? "IDA a San Joaquín" : "VUELTA desde San Joaquín") + " · " + diaLabel(t.dia) + " " + diaFecha(t.dia) + "\n" +
+    (ida ? "Paso por " + punto(t) + " a las " + fmtH(t.salida) + " y llego a San Joaquín a las " + fmtH(t.llegada)
+         : "Salgo de San Joaquín a las " + fmtH(t.salida) + " y llego a " + punto(t) + " a las " + fmtH(t.llegada)) + "\n" +
+    libres(t) + " " + plural(libres(t),"cupo","cupos") + " · " + money(t.aporte) + " por transferencia\n" +
+    (t.tol ? "Espero hasta " + t.tol + " min" : "Salgo a la hora exacta") + " · " + AMB_CORTO[t.amb] + "\n" +
+    "Cancelación: " + REGLAS[t.regla].corto + "\n" +
+    "Reserva tu cupo aquí: " + url;
+}
+
+function viewConductor(t){
+  var h = '<a class="back" href="#viajes">← Mis viajes</a>';
+  h += '<p class="eyebrow">' + (t.sentido === "ida" ? "Ida a San Joaquín" : "Vuelta desde San Joaquín") + ' · ' + diaLabel(t.dia) + ' ' + diaFecha(t.dia) + '</p><h1>Tu turno</h1>';
+  if (t.estado === "cancelado"){
+    h += '<div class="banner stop"><strong>Cancelaste este turno</strong><span>Las personas con cupo lo ven como cancelado en Mis viajes, con otras opciones para llegar.</span></div>';
+  } else if (ui.flash && ui.flash.id === t.id){
+    h += '<div class="banner go"><strong>Turno publicado</strong><span>Ya aparece en Buscar turno para quienes ' + (t.sentido === "ida" ? "tienen clase a las " + fmtH(toMin(claseFor(t))) : "terminan a las " + fmtH(toMin(claseFor(t)))) + ' ' + diaLabel(t.dia).toLowerCase() + '. Compártelo también en el grupo de WhatsApp.</span></div>';
+  }
+  h += '<div class="panel">' + routeHTML(t, true) + '</div>';
+  h += '<section class="sec"><h2 class="sec-h">Pasajeros · ' + t.pasajeros.length + ' de ' + t.cupos + '</h2><div class="panel" style="margin:0">' +
+    (t.pasajeros.length ? '<ul class="facts" style="margin:0">' + t.pasajeros.map(function(n){ return "<li>" + esc(n) + "</li>"; }).join("") + '</ul>' : '<span class="muted">Todavía nadie reserva. Cuando alguien lo haga aparecerá aquí.</span>') +
+    (t.espera.length ? '<p class="small muted" style="margin:10px 0 0">En lista de espera: ' + t.espera.map(esc).join(", ") + '</p>' : '') + '</div></section>';
+  h += '<section class="sec"><h2 class="sec-h">Lo que ven los pasajeros antes de reservar</h2>' + condsHTML(t) + '</section>';
+  if (t.estado !== "cancelado"){
+    h += '<section class="sec"><h2 class="sec-h">Mensaje para el grupo de WhatsApp</h2><textarea id="wa-text" class="wa" readonly aria-label="Mensaje para el grupo de WhatsApp">' + esc(waText(t)) + '</textarea>' +
+      '<div class="cta" style="margin-top:8px"><button type="button" class="btn primary" data-act="copy">Copiar mensaje</button></div></section>';
+    if (ui.confirm === t.id){
+      h += '<div class="confirm"><strong>¿Cancelar este turno?</strong><span>' + (t.pasajeros.length ? "Se avisará a " + t.pasajeros.map(esc).join(", ") + "." : "Nadie ha reservado todavía.") + '</span>' +
+        '<div class="row"><button type="button" class="btn danger" data-act="driver-cancel-yes" data-id="' + t.id + '">Sí, cancelar turno</button><button type="button" class="btn secondary" data-act="cancel-no">No, mantener</button></div></div>';
+    } else {
+      h += '<div class="cta"><button type="button" class="btn danger" data-act="cancel-ask" data-id="' + t.id + '">Cancelar turno</button></div>';
+    }
+  }
+  return h;
+}
+
+function viewViajes(){
+  var pend = pendientes();
+  var pas = Object.keys(state.mis).map(trip).filter(function(t){ return t && t.estado !== "cancelado"; });
+  var own = state.trips.filter(function(t){ return t.cond === -1; });
+  var prox = pas.concat(own).sort(function(a,b){ return a.dia - b.dia || a.salida - b.salida; });
+  var h = '<h1>Mis viajes</h1><p class="sub">Tus cupos, listas de espera y turnos que publicaste.</p>';
+  if (pend.length){
+    h += '<h2 class="res-h">Necesitan tu atención</h2><div class="list">' + pend.map(function(t){ return cardHTML(t,{role:roleOf(t)}); }).join("") + '</div>';
+  }
+  if (prox.length){
+    h += '<h2 class="res-h">Próximos</h2><div class="list">' + prox.map(function(t){ return cardHTML(t,{role:roleOf(t)}); }).join("") + '</div>';
+  }
+  if (!pend.length && !prox.length){
+    h += '<div class="empty"><strong>No tienes viajes por ahora</strong><span class="muted">Busca un turno para reservar un cupo, o publica uno si vas a manejar.</span>' +
+      '<div class="row" style="margin-top:8px"><a class="btn primary" href="#buscar">Buscar turno</a><a class="btn secondary" href="#publicar">Publicar turno</a></div></div>';
+  }
+  return h + noteHTML();
+}
+
+/* --- Publicar --- */
+function formDefaults(){ return {sentido:"ida", dia:1, mod:"1", punto:0, ajuste:0, cupos:3, aporte:String(SECT[state.sector].tarifa), regla:"flexible", tol:5, amb:"igual"}; }
+function parseAporte(s){ var str = String(s).trim(); if (!/^\$?\s*[\d.]+$/.test(str)) return null; var n = Number(str.replace(/[^\d]/g,"")); return n > 20000 ? null : n; }
+function draft(){
+  var f = state.form, S = SECT[state.sector], salida, llegada;
+  if (f.sentido === "ida"){
+    var ini = toMin(MOD_INI.filter(function(m){ return m[0] === f.mod; })[0][1]);
+    llegada = ini - 15 + f.ajuste; salida = llegada - S.dur - S.extra[f.punto];
+  } else {
+    var fin = toMin(MOD_FIN.filter(function(m){ return m[0] === f.mod; })[0][1]);
+    salida = fin + 10 + f.ajuste; llegada = salida + S.dur + S.extra[f.punto];
+  }
+  var ap = parseAporte(f.aporte);
+  return {id:"borrador", sector:state.sector, sentido:f.sentido, dia:f.dia, cond:-1, punto:f.punto, salida:salida, llegada:llegada,
+    cupos:f.cupos, pasajeros:[], espera:[], aporte: ap === null ? 0 : ap, amb:f.amb, regla:f.regla, tol:f.tol, estado:"ok"};
+}
+function aporteHint(){
+  var S = SECT[state.sector], ap = parseAporte(state.form.aporte);
+  if (ap === null) return {err:true, txt:"Escribe el monto en pesos, solo números. Por ejemplo: 2000."};
+  if (ap !== S.tarifa) return {err:false, txt:"La tarifa del grupo es " + money(S.tarifa) + ". Los pasajeros verán tu monto antes de reservar."};
+  return {err:false, txt:"Es la tarifa del grupo " + S.nombre + "."};
+}
+function viewPublicar(){
+  if (!state.form) state.form = formDefaults();
+  var f = state.form, S = SECT[state.sector], d = draft(), ida = f.sentido === "ida", hint = aporteHint();
+  var h = '<h1>Publicar turno</h1><p class="sub">Lo mismo que escribirías en el grupo, ordenado para que los pasajeros sepan todo antes de reservar.</p>';
+  h += '<div class="seg" role="group" aria-label="Sentido del viaje">' + segBtn("form","sentido","ida","Ida al campus",f.sentido) + segBtn("form","sentido","vuelta","Vuelta a casa",f.sentido) + '</div>';
+  h += field("Día", '<div class="chips">' + [0,1,2].map(function(x){ return chip("form","dia",x,diaLabel(x),diaFecha(x),f.dia===x); }).join("") + '</div>');
+  h += field(ida ? "Quieres llegar para la clase de las" : "Sales después de la clase que termina a las",
+    '<div class="scroller">' + (ida ? MOD_INI : MOD_FIN).map(function(m){ return chip("form","mod",m[0],fmtH(toMin(m[1])),"Módulo " + m[0],f.mod===m[0],true); }).join("") + '</div>');
+  h += field(ida ? "Punto de encuentro" : "Dejas a los pasajeros en", '<div class="chips">' + S.puntos.map(function(p,i){ return chip("form","punto",String(i),esc(p),"",f.punto===i); }).join("") + '</div>');
+  h += field(ida ? "Hora en que pasas por " + esc(S.puntos[f.punto]) : "Hora en que sales del campus",
+    '<div class="timebox"><div><span class="t">' + fmt(d.salida) + '</span><span class="lbl">Llegas a ' + (ida ? "San Joaquín" : esc(S.puntos[f.punto])) + ' cerca de las ' + fmtH(d.llegada) + '</span></div>' +
+    '<div class="stepper"><button type="button" data-act="ajuste" data-d="-5" aria-label="5 minutos antes">−5</button><button type="button" data-act="ajuste" data-d="5" aria-label="5 minutos después">+5</button></div></div>' +
+    '<p class="hint">Calculado con unos ' + S.dur + ' min de viaje entre ' + S.nombre + ' y el campus. Ajústalo si sueles demorarte otra cosa.</p>');
+  h += field("Cupos que ofreces", '<div class="stepper"><button type="button" data-act="cupos" data-d="-1" aria-label="Un cupo menos">−</button><output id="cupos-out" aria-live="polite">' + f.cupos + '</output><button type="button" data-act="cupos" data-d="1" aria-label="Un cupo más">+</button></div>');
+  h += field('<label for="f-aporte">Aporte por pasajero</label>', '<div class="moneyin"><span>$</span><input id="f-aporte" inputmode="numeric" autocomplete="off" value="' + esc(f.aporte) + '" aria-describedby="aporte-hint"></div><p class="hint' + (hint.err ? " err" : "") + '" id="aporte-hint">' + hint.txt + '</p>');
+  h += field("Si un pasajero cancela", '<div class="opts">' + Object.keys(REGLAS).map(function(k){
+    return '<button type="button" class="opt" data-act="form" data-k="regla" data-val="' + k + '" aria-pressed="' + (f.regla === k) + '"><strong>' + REGLAS[k].titulo + '</strong><span>' + REGLAS[k].largo + '</span></button>';
+  }).join("") + '</div>');
+  h += field("Cuánto esperas en el punto", '<div class="chips">' + [[0,"No espero"],[5,"5 min"],[10,"10 min"]].map(function(o){ return chip("form","tol",o[0],o[1],"",f.tol===o[0]); }).join("") + '</div>');
+  h += field("Conversación en el viaje", '<div class="chips">' + ["conversa","tranquilo","igual"].map(function(k){ return chip("form","amb",k,AMB_CORTO[k],"",f.amb===k); }).join("") + '</div>');
+  h += '<section class="sec"><h2 class="sec-h">Así lo verán los pasajeros</h2><div id="preview">' + cardHTML(d,{preview:true}) + '</div></section>';
+  h += '<div class="cta"><button type="button" class="btn primary" id="publish-btn" data-act="publish"' + (hint.err ? " disabled" : "") + '>Publicar turno</button>' +
+    '<p class="small muted center" style="margin:0">Después podrás copiar el mensaje para el grupo de WhatsApp.</p></div>';
+  return h;
+}
+
+/* ---------- Render ---------- */
+function route(){
+  var h = location.hash.slice(1) || "buscar";
+  if (h.indexOf("viaje-") === 0) return {v:"viaje", id:h.slice(6)};
+  if (h === "buscar" || h === "publicar" || h === "viajes") return {v:h};
+  return {v:"buscar"};
+}
+function render(){
+  var r = route(), hash = location.hash;
+  var changed = hash !== ui.lastHash;
+  if (changed && ui.lastHash !== null){ ui.confirm = null; }
+  var html;
+  if (r.v === "viaje") html = viewViaje(r.id);
+  else if (r.v === "publicar") html = viewPublicar();
+  else if (r.v === "viajes") html = viewViajes();
+  else html = viewBuscar();
+  $("#main").innerHTML = html;
+  var tabName = r.v === "viaje" ? "viajes" : r.v;
+  if (r.v === "viaje"){ var t = trip(r.id); if (t && !state.mis[t.id] && t.cond !== -1) tabName = "buscar"; }
+  document.querySelectorAll(".tab").forEach(function(a){ if (a.dataset.tab === tabName) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
+  var n = pendientes().filter(function(t){ return !state.mis[t.id].visto; }).length;
+  var b = $("#badge"); b.hidden = !n; b.textContent = n;
+  $("#sector-btn").innerHTML = '<span>Desde</span> ' + SECT[state.sector].nombre + ' <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  if (changed){ window.scrollTo(0,0); if (ui.lastHash !== null && !(ui.flash && hash === "#viaje-" + ui.flash.id)) ui.flash = null; }
+  ui.lastHash = hash;
+}
+
+var toastT;
+function toast(msg){ var el = $("#toast"); el.textContent = msg; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(function(){ el.hidden = true; }, 4200); }
+
+function openSheet(){
+  var el = $("#sheet");
+  el.innerHTML = '<div class="sheet-back" data-act="sheet-close"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-t">' +
+    '<h2 id="sheet-t">¿Desde dónde viajas?</h2><p class="muted" style="margin:0">Cada sector tiene su propio grupo, puntos de encuentro y tarifa. Puedes cambiarlo cuando quieras.</p>' +
+    Object.keys(SECT).map(function(k){ var S = SECT[k];
+      return '<button type="button" class="opt" data-act="sector-pick" data-val="' + k + '" aria-pressed="' + (state.sector === k) + '"><strong>' + S.nombre + '</strong><span>' + S.puntos.join(" · ") + ' · aporte ' + money(S.tarifa) + '</span></button>';
+    }).join("") + '</div></div>';
+  el.hidden = false;
+  var first = el.querySelector(".opt"); if (first) first.focus();
+}
+function closeSheet(){ var el = $("#sheet"); el.hidden = true; el.innerHTML = ""; $("#sector-btn").focus(); }
+
+/* ---------- Acciones ---------- */
+var act = {
+  search: function(el){
+    var k = el.dataset.k, v = el.dataset.val;
+    state.search[k] = k === "dia" ? +v : v;
+    save(); render();
+  },
+  form: function(el){
+    var k = el.dataset.k, v = el.dataset.val, f = state.form;
+    if (k === "dia" || k === "tol" || k === "punto") v = +v;
+    if (k === "sentido" && v !== f.sentido){ f.mod = v === "ida" ? "1" : "6"; f.ajuste = 0; }
+    if (k === "mod") f.ajuste = 0;
+    f[k] = v; save(); render();
+  },
+  ajuste: function(el){ state.form.ajuste = Math.max(-60, Math.min(60, state.form.ajuste + (+el.dataset.d))); save(); render(); },
+  cupos: function(el){ state.form.cupos = Math.max(1, Math.min(4, state.form.cupos + (+el.dataset.d))); save(); render(); },
+  publish: function(){
+    if (parseAporte(state.form.aporte) === null){ toast("Revisa el aporte: escribe solo números."); var i = $("#f-aporte"); if (i) i.focus(); return; }
+    var t = draft(); t.id = "mio-" + Date.now().toString(36);
+    state.trips.push(t); state.touched = true; state.form = null;
+    ui.flash = {id:t.id}; save();
+    location.hash = "viaje-" + t.id;
+  },
+  reserve: function(el){
+    var t = trip(el.dataset.id); if (!t || libres(t) <= 0 || isPast(t)) return;
+    t.espera = t.espera.filter(function(n){ return n !== "Tú"; });
+    t.pasajeros.push("Tú");
+    Object.keys(state.mis).forEach(function(k){ var o = trip(k); if (o && o.estado === "cancelado" && o.dia === t.dia && o.sentido === t.sentido) delete state.mis[k]; });
+    state.mis[t.id] = {clase: claseFor(t), visto:true};
+    state.touched = true; ui.flash = {id:t.id}; save();
+    if (location.hash !== "#viaje-" + t.id) location.hash = "viaje-" + t.id; else { render(); window.scrollTo(0,0); }
+    toast("Cupo reservado con " + getCond(t).n + ".");
+  },
+  wait: function(el){
+    var t = trip(el.dataset.id); if (!t) return;
+    if (t.espera.indexOf("Tú") < 0) t.espera.push("Tú");
+    state.mis[t.id] = {clase: claseFor(t), visto:true, espera:true};
+    state.touched = true; save(); render(); window.scrollTo(0,0);
+    toast("Te uniste a la lista de espera.");
+  },
+  "leave-wait": function(el){
+    var t = trip(el.dataset.id); if (!t) return;
+    t.espera = t.espera.filter(function(n){ return n !== "Tú"; }); delete state.mis[t.id];
+    save(); render(); toast("Saliste de la lista de espera.");
+  },
+  "cancel-ask": function(el){ ui.confirm = el.dataset.id; render(); var c = document.querySelector(".confirm"); if (c){ c.scrollIntoView({block:"center"}); var b = c.querySelector("button"); if (b) b.focus(); } },
+  "cancel-no": function(){ ui.confirm = null; render(); },
+  "cancel-yes": function(el){
+    var t = trip(el.dataset.id); if (!t) return;
+    t.pasajeros = t.pasajeros.filter(function(n){ return n !== "Tú"; }); delete state.mis[t.id];
+    var msg = "Cancelaste tu cupo.";
+    if (t.espera.length){ var n = t.espera.shift(); t.pasajeros.push(n); msg += " El cupo pasó a " + n + ", que estaba en la lista de espera."; }
+    ui.confirm = null; ui.flash = null; save(); render(); window.scrollTo(0,0); toast(msg);
+  },
+  "driver-cancel-yes": function(el){
+    var t = trip(el.dataset.id); if (!t) return;
+    t.estado = "cancelado"; t.aviso = {texto:"Turno cancelado por quien conduce.", ts:Date.now()};
+    ui.confirm = null; ui.flash = null; save(); render(); window.scrollTo(0,0); toast("Cancelaste el turno.");
+  },
+  dismiss: function(el){ delete state.mis[el.dataset.id]; save(); location.hash = "viajes"; },
+  copy: function(){
+    var ta = $("#wa-text"); if (!ta) return;
+    function fallback(){ ta.focus(); ta.select(); toast("Texto seleccionado. Cópialo con Ctrl+C o mantén presionado."); }
+    try {
+      navigator.clipboard.writeText(ta.value).then(function(){ toast("Mensaje copiado. Pégalo en el grupo de WhatsApp."); }, fallback);
+    } catch(e){ fallback(); }
+  },
+  reset: function(){ state = seed(state.sector); ui.flash = null; ui.confirm = null; save(); render(); window.scrollTo(0,0); toast("Datos de prueba reiniciados."); },
+  "sector-open": function(){ openSheet(); },
+  "sector-close": function(){},
+  "sheet-close": function(el, e){ if (e.target === el) closeSheet(); },
+  "sector-pick": function(el){
+    var k = el.dataset.val; saveSector(k);
+    if (!state.touched && k !== state.sector){ state = seed(k); }
+    else { state.sector = k; state.form = null; state.search.punto = "todos"; }
+    save(); closeSheet(); render();
+  }
+};
+
+document.addEventListener("click", function(e){
+  var el = e.target.closest("[data-act]"); if (!el) return;
+  var fn = act[el.dataset.act]; if (fn){ fn(el, e); }
+});
+document.addEventListener("input", function(e){
+  if (e.target.id !== "f-aporte" || !state.form) return;
+  state.form.aporte = e.target.value; save();
+  var hint = aporteHint(), p = $("#aporte-hint"), b = $("#publish-btn"), pv = $("#preview");
+  if (p){ p.textContent = hint.txt; p.className = "hint" + (hint.err ? " err" : ""); }
+  if (b) b.disabled = hint.err;
+  if (pv) pv.innerHTML = cardHTML(draft(), {preview:true});
+});
+document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); });
+window.addEventListener("hashchange", render);
+
+render();
+if (firstRun) openSheet();
+})();
+</script>
+</body>
+</html>
